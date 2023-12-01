@@ -20,3 +20,45 @@ void setupOpticalSensors() {
     pinmode(SRC, INPUT);
     pinmode(CS_Sensors, OUTPUT);
 }
+
+void initReading(int pin) {
+    digitalWrite(pin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(pin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(pin, LOW);
+}
+
+int readingReturn(int pin) {
+    return digitalRead(pin);
+}
+
+int getSCReading() {
+    initReading(SC);
+
+    return readingReturn(SC);
+}
+
+int getSLReading() {
+    initReading(SL);
+
+    return readingReturn(SL);
+}
+
+int getSRReading() {
+    initReading(SR);
+
+    return readingReturn(SR);
+}
+
+int getSLCReading() {
+    initReading(SLC);
+
+    return readingReturn(SLC);
+}
+
+int getSRCReading() {
+    initReading(SRC);
+
+    return readingReturn(SRC);
+}
