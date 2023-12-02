@@ -9,7 +9,7 @@
 #define EN_TRIG 16
 
 float readings[3];
-int sizeReadings;
+int sizeReadings = 0;
 
 // Setup do sensor ultrassonico
 void setupUltrassonicSensor() {
