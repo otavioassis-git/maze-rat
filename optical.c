@@ -71,7 +71,7 @@ float calculateMean(int id, int pin) {
 
     // calcula a média das últimas leituras
     float sum = 0;
-    for (int i = 0; i < sizeReadings; i++) {
+    for (int i = 0; i < sizeReadings[id]; i++) {
         sum += readings[id][i];
     }
 
