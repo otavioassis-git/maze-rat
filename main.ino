@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include "lcd.h"
+#include "optical.h"
 #include "ultrasonic.h"
 
 // pinos de sensores
@@ -12,6 +13,7 @@
 
 void setup() {
     setupLcd();
+    setupOpticalSensors();
     setupUltrassonicSensor();
 }
 

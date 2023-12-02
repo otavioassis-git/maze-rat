@@ -35,7 +35,7 @@ float getDistance() {
         readings[1] = readings[0];
         readings[0] = distance;
     } else {
-        // caso o vetor ainda não esteja cheio
+        // caso o vetor ainda não esteja cheio insere na última posição
         readings[sizeReadings] = distance;
         sizeReadings++;
     }
