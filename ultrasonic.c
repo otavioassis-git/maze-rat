@@ -22,6 +22,6 @@ float getDistance() {
     digitalWrite(EN_TRIG, LOW);
     delayMicroseconds(10);
 
-    int duration = pulseIn(MISO_ECHO, HIGH);
+    unsigned long duration = pulseIn(MISO_ECHO, HIGH);
     return duration / 58;
 }
