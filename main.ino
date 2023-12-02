@@ -2,6 +2,7 @@
 
 #include "lcd.h"
 #include "optical.h"
+#include "ultrasonic.h"
 
 // pinos de sensores
 #define SLC 36
@@ -13,6 +14,7 @@
 void setup() {
     setupLcd();
     setupOpticalSensors();
+    setupUltrassonicSensor();
 }
 
 void loop() {
