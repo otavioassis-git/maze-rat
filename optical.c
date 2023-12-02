@@ -33,30 +33,35 @@ int readingReturn(int pin) {
     return digitalRead(pin);
 }
 
+// Retorna a leitura do sensor óptio central
 int getSCReading() {
     initReading(SC);
 
     return readingReturn(SC);
 }
 
+// Retorna a leitura do sensor óptio esquerdo
 int getSLReading() {
     initReading(SL);
 
     return readingReturn(SL);
 }
 
+// Retorna a leitura do sensor óptio direito
 int getSRReading() {
     initReading(SR);
 
     return readingReturn(SR);
 }
 
+// Retorna a leitura do sensor óptio esquerdo central
 int getSLCReading() {
     initReading(SLC);
 
     return readingReturn(SLC);
 }
 
+// Retorna a leitura do sensor óptio direito central
 int getSRCReading() {
     initReading(SRC);
 
