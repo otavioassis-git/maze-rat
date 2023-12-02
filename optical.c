@@ -26,10 +26,11 @@ void setupOpticalSensors() {
 
 void initReading(int pin) {
     digitalWrite(pin, LOW);
-    delayMicroseconds(2);
+    delayMicroseconds(10);
     digitalWrite(pin, HIGH);
     delayMicroseconds(10);
     digitalWrite(pin, LOW);
+    delayMicroseconds(10);
 }
 
 float readingReturn(int pin) {
