@@ -13,7 +13,7 @@ void setupUltrassonicSensor() {
     pinMode(EN_TRIG, OUTPUT);
 }
 
-// Pega a distância em centímetros
+// Retorna a distância em centímetros
 float getDistance() {
     digitalWrite(EN_TRIG, LOW);
     delayMicroseconds(10);
