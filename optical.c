@@ -82,34 +82,29 @@ float calculateMean(int id, int pin) {
 // Retorna a leitura do sensor óptio central
 float getSCReading() {
     initReading(SC);
-
     return readingReturn(SC);
 }
 
 // Retorna a leitura do sensor óptio esquerdo
 float getSLReading() {
     initReading(SL);
-
     return readingReturn(SL);
 }
 
 // Retorna a leitura do sensor óptio direito
 float getSRReading() {
     initReading(SR);
-
     return readingReturn(SR);
 }
 
 // Retorna a leitura do sensor óptio esquerdo central
 float getSLCReading() {
     initReading(SLC);
-
     return readingReturn(SLC);
 }
 
 // Retorna a leitura do sensor óptio direito central
 float getSRCReading() {
     initReading(SRC);
-
     return readingReturn(SRC);
 }
