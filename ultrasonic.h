@@ -1,0 +1,2 @@
+void setupUltrassonicSensor();
+float getDistance();

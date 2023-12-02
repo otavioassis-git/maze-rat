@@ -1,5 +1,7 @@
 #include <string.h>
+
 #include "lcd.h"
+#include "ultrasonic.h"
 
 // pinos de sensores
 #define SLC 36
@@ -9,9 +11,9 @@
 #define SRC 32
 
 void setup() {
-  setupLcd();
+    setupLcd();
+    setupUltrassonicSensor();
 }
 
 void loop() {
-  
 }
