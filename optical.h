@@ -1,6 +1,6 @@
 void setupOpticalSensors();
-int getSCReading();
-int getSLReading();
-int getSRReading();
-int getSLCReading();
-int getSRCReading();
+float getSCReading();
+float getSLReading();
+float getSRReading();
+float getSLCReading();
+float getSRCReading();
