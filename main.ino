@@ -1,5 +1,7 @@
 #include <string.h>
+
 #include "lcd.h"
+#include "servo.h"
 
 // pinos de sensores
 #define SLC 36
@@ -10,6 +12,7 @@
 
 void setup() {
   setupLcd();
+  setupServo();
 }
 
 void loop() {
