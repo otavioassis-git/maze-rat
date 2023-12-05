@@ -143,19 +143,19 @@ void setupOpticalSensors() {
 float readingReturn(int pin) {
     switch (pin) {
         case SC:
-            return calculateMean(0, SC);
+            return calculateOpticalReadingsMean(0, SC);
 
         case SL:
-            return calculateMean(1, SL);
+            return calculateOpticalReadingsMean(1, SL);
 
         case SR:
-            return calculateMean(2, SR);
+            return calculateOpticalReadingsMean(2, SR);
 
         case SLC:
-            return calculateMean(3, SLC);
+            return calculateOpticalReadingsMean(3, SLC);
 
         case SRC:
-            return calculateMean(4, SRC);
+            return calculateOpticalReadingsMean(4, SRC);
     }
 }
 
@@ -398,11 +398,11 @@ void loop() {
     */
 
     /*
-    int sensorSC = getSCReading();
+    float sensorSC = getSCReading();
     Serial.println(sensorSC);
 
     char szSc[10];
-    dtostrf(float(sensorSC), 4, 3, szSc);
+    dtostrf(sensorSC, 4, 3, szSc);
     writeAbove(szSc);
     */
 
