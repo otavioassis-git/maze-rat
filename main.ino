@@ -3,8 +3,8 @@
 
 // Pinos servo motor
 #define SERVO_PIN 13
-#define FRONT_ANGLE 80 //90
-#define LEFT_ANGLE 180 //180
+#define FRONT_ANGLE 80 
+#define LEFT_ANGLE 180
 #define RIGHT_ANGLE 0
 
 // Pinos sensor ultrassonico
@@ -54,6 +54,11 @@ const int DATA[] = {4, 0, 2, 15};
 #define PWM2_Ch    1
 #define PWM1_Res   8
 #define PWM1_Freq  1000
+
+#define Controller_Limit 4096
+#define Pwm_Limit 128
+
+float ratio_controller_pwm = float(Pwm_Limit)/Controller_Limit;
 
 float readingsUltrasonic[3];
 int sizeReadingsUltrasonic = 0;
@@ -317,6 +322,18 @@ void pwmMotors(int pwm_right, int pwm_left){
 }
 ////////////////////////////////////////////////////// FIM MOTORES
 
+////////////////////////////////////////////////////// SEGUE LINHA
+void segueLinha(){
+  int sr_value = getSRReading();
+  int sl_value = getSLReading();
+  
+  int pwm_sr = Pwm_Limit-int(sr_value*ratio_controller_pwm);
+  float pwm_sl = Pwm_Limit+int(sl_value*ratio_controller_pwm);
+
+  pwmMotors(pwm_sl,pwm_sr);
+}
+////////////////////////////////////////////////////// SEGUE LINHA FIM
+
 void setup() {
   setupOpticalSensors();
   setupUltrassonicSensor();
@@ -349,8 +366,4 @@ void loop() {
   */
 
   enableMotors();
-  pwmMotors(0,255);
-  delay(1000);
-  pwmMotors(255,0);
-  delay(1000);
 }
