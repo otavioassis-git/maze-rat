@@ -140,7 +140,7 @@ void setupOpticalSensors() {
     pinMode(SRC, INPUT);
 }
 
-float readingReturn(int pin) {
+float returnOpticalReading(int pin) {
     switch (pin) {
         case SC:
             return calculateOpticalReadingsMean(0, SC);
@@ -186,27 +186,27 @@ float calculateOpticalReadingsMean(int id, int pin) {
 
 // Retorna a leitura do sensor óptio central
 float getSCReading() {
-    return readingReturn(SC);
+    return returnOpticalReading(SC);
 }
 
 // Retorna a leitura do sensor óptio esquerdo
 float getSLReading() {
-    return readingReturn(SL);
+    return returnOpticalReading(SL);
 }
 
 // Retorna a leitura do sensor óptio direito
 float getSRReading() {
-    return readingReturn(SR);
+    return returnOpticalReading(SR);
 }
 
 // Retorna a leitura do sensor óptio esquerdo central
 float getSLCReading() {
-    return readingReturn(SLC);
+    return returnOpticalReading(SLC);
 }
 
 // Retorna a leitura do sensor óptio direito central
 float getSRCReading() {
-    return readingReturn(SRC);
+    return returnOpticalReading(SRC);
 }
 
 ///////////////////////////////////////////////////// FIM OPTICOS
