@@ -54,10 +54,9 @@ const int DATA[] = {4, 0, 2, 15};
 #define PWM1_Res 8
 #define PWM1_Freq 1000
 
-#define Controller_Limit 4096
-#define Pwm_Limit 128
-
-float ratio_controller_pwm = float(Pwm_Limit) / Controller_Limit;
+#define MAX_OPTICAL 2400.0
+#define MAX_SPEED 32.0
+#define MIN_SPEED 10.0
 
 /////////////////////////////////////////////////// SERVO
 
@@ -129,7 +128,7 @@ float getDistance() {
 ////////////////////////////////////////////////////// FIM ULTRASSOM
 
 ///////////////////////////////////////////////////// OPTICOS
-float readingsOptical[5][5];
+float readingsOptical[5][3];
 int sizeReadingsOptical[5] = {0, 0, 0, 0, 0};
 
 void setupOpticalSensors() {
@@ -140,32 +139,39 @@ void setupOpticalSensors() {
     pinMode(SRC, INPUT);
 }
 
-float returnOpticalReading(int pin) {
+int returnOpticalReading(int pin) {
+    float mean = 0;
     switch (pin) {
         case SC:
-            return calculateOpticalReadingsMean(0, SC);
+            mean = analogRead(SC);
+            break;
 
         case SL:
-            return calculateOpticalReadingsMean(1, SL);
+            mean = analogRead(SL);
+            break;
 
         case SR:
-            return calculateOpticalReadingsMean(2, SR);
+            mean = analogRead(SR);
+            break;
 
         case SLC:
-            return calculateOpticalReadingsMean(3, SLC);
+            mean = analogRead(SLC);
+            break;
 
         case SRC:
-            return calculateOpticalReadingsMean(4, SRC);
+            mean = analogRead(SRC);
+            break;
     }
+    return mean;
 }
 
 float calculateOpticalReadingsMean(int id, int pin) {
     int reading = analogRead(pin);
 
     // atualiza o vetor com as leituras
-    if (sizeReadingsOptical[id] == 5) {
+    if (sizeReadingsOptical[id] == 3) {
         // retira a última leitura e coloca a nova
-        for (int i = 4; i > 0; i++) {
+        for (int i = 2; i > 0; i--) {
             readingsOptical[id][i] = readingsOptical[id][i - 1];
         }
         readingsOptical[id][0] = reading;
@@ -185,27 +191,27 @@ float calculateOpticalReadingsMean(int id, int pin) {
 }
 
 // Retorna a leitura do sensor óptio central
-float getSCReading() {
+int getSCReading() {
     return returnOpticalReading(SC);
 }
 
 // Retorna a leitura do sensor óptio esquerdo
-float getSLReading() {
+int getSLReading() {
     return returnOpticalReading(SL);
 }
 
 // Retorna a leitura do sensor óptio direito
-float getSRReading() {
+int getSRReading() {
     return returnOpticalReading(SR);
 }
 
 // Retorna a leitura do sensor óptio esquerdo central
-float getSLCReading() {
+int getSLCReading() {
     return returnOpticalReading(SLC);
 }
 
 // Retorna a leitura do sensor óptio direito central
-float getSRCReading() {
+int getSRCReading() {
     return returnOpticalReading(SRC);
 }
 
@@ -289,6 +295,11 @@ void write4bits(int value) {
         digitalWrite(DATA[i], (value >> (3 - i)) & 0x1);
     }
     pulseEnable();
+
+    for (int i = 0; i < 4; i++) {
+        // Only the value corresponding to the bit of interest
+        digitalWrite(DATA[i], 0);
+    }
 }
 
 /* ------------------------------------------------------
@@ -301,7 +312,7 @@ void write8bits(int value) {
     write4bits(value);
 }
 
-void writeAbove(const char* value) {
+void writeAbove(const char *value) {
     write8bits(RETURN_HOME);
     delay(2);  // 1.52ms delay needed for the Return Home command
 
@@ -315,7 +326,7 @@ void writeAbove(const char* value) {
     }
 }
 
-void writeBelow(const char* value) {
+void writeBelow(const char *value) {
     write8bits(RETURN_HOME);
     delay(2);  // 1.52ms delay needed for the Return Home command
     for (int i = 0; i < 40; i++) {
@@ -364,16 +375,115 @@ void pwmMotors(int pwm_right, int pwm_left) {
 ////////////////////////////////////////////////////// FIM MOTORES
 
 ////////////////////////////////////////////////////// SEGUE LINHA
-void segueLinha() {
-    int sr_value = getSRReading();
-    int sl_value = getSLReading();
+float rSensor;
+float lSensor;
 
-    int pwm_sr = Pwm_Limit - int(sr_value * ratio_controller_pwm);
-    float pwm_sl = Pwm_Limit + int(sl_value * ratio_controller_pwm);
+/*
+    int pwm_sr = int(lSensor * ratio_controller_pwm)+64;
+    int pwm_sl = 2*Pwm_Limit - (int(rSensor * ratio_controller_pwm)+64);
+*/
 
-    pwmMotors(pwm_sl, pwm_sr);
+void followLine() {
+    float rSensor = float(getSRReading());
+    float lSensor = float(getSLReading());
+    float pwm_sr = 0;
+    float pwm_sl = 0;
+
+    pwm_sr = 128 - ((1 - (rSensor / MAX_OPTICAL)) * MAX_SPEED);
+    pwm_sl = 128 + ((1 - (lSensor / MAX_OPTICAL)) * MAX_SPEED);
+
+    Serial.println(rSensor);
+    Serial.println(lSensor);
+    Serial.println("----------------");
+    Serial.println(pwm_sr);
+    Serial.println(pwm_sl);
+    Serial.println("////////////////");
+
+    enableMotors();
+    pwmMotors(int(pwm_sr), int(pwm_sl));
+
+    clearDisplay();
+    char szRSensor[10];
+    char szLSensor[10];
+    dtostrf(pwm_sr, 4, 3, szRSensor);
+    dtostrf(pwm_sl, 4, 3, szLSensor);
+    writeAbove(szRSensor);
+    writeBelow(szLSensor);
+}
+
+void turnRight() {
+    enableMotors();
+    pwmMotors(20, 20);
+
+    while (float scReading = getSCReading()) {
+        if (scReading < 300) {
+            break;
+        }
+    }
+
+    while (float scReading = getSCReading()) {
+        if (scReading > 1000) {
+            break;
+        }
+    }
+
+    disableMotors();
+}
+
+void turnLeft() {
+    enableMotors();
+    pwmMotors(236, 236);
+
+    while (float scReading = getSCReading()) {
+        if (scReading < 300) {
+            break;
+        }
+    }
+
+    while (float scReading = getSCReading()) {
+        if (scReading > 1000) {
+            break;
+        }
+    }
+
+    disableMotors();
+}
+
+void turnAround() {
+    turnRight();
+    turnRight();
 }
 ////////////////////////////////////////////////////// SEGUE LINHA FIM
+
+///////////////////////////////////////////////////// UTILS
+float rcSensor;
+float lcSensor;
+
+byte isCloseToWall(float distance) {
+    if (distance > 30)
+        return false;
+    return true;
+}
+
+#define CROSSING_OFFSET 1500
+byte isOverCrossing() {
+    rcSensor = getSRCReading();
+    lcSensor = getSLCReading();
+    if (rcSensor > CROSSING_OFFSET && lcSensor > CROSSING_OFFSET)
+        return true;
+    return false;
+}
+
+///////////////////////////////////////////////////// FIM UTILS
+
+///////////////////////////////////////////// GLOBALS
+
+byte bCloseToWall = false;
+
+float wallDistance = 400;
+char szWallDistance[10];
+
+///////////////////////////////////////////// FIM GLOBALS
 
 void setup() {
     setupOpticalSensors();
@@ -381,30 +491,58 @@ void setup() {
     setupLcd();
     setupServo();
     setupMotors();
+    enableMotors();
     Serial.begin(115200);  // ESP32
+    servoFront();
 }
 
 void loop() {
-    /*
-    float distance = getDistance();
-    char szDistance[10];
+    // followLine();
+    // if (isOverCrossing())
+    // {
+    //     disableMotors();
 
-    //4 is mininum width, 3 is precision; float value is copied onto buffer szDistance
-    dtostrf(distance, 4, 3, szDistance);
+    //     servoRight();
+    //     wallDistance = getDistance();
+    //     dtostrf(wallDistance, 3, 2, szWallDistance);
 
-    Serial.println(distance);
-    writeAbove("a");
-    delay(100);
-    */
+    //     clearDisplay();
+    //     writeAbove("Distancia parede");
+    //     writeBelow(szWallDistance);
+    //     if (!isCloseToWall(wallDistance))
+    //     {
+    //         turnRight();
+    //         servoFront();
+    //         return;
+    //     }
 
-    /*
-    float sensorSC = getSCReading();
-    Serial.println(sensorSC);
+    //     servoFront();
+    //     wallDistance = getDistance();
+    //     dtostrf(wallDistance, 3, 2, szWallDistance);
+    //     // clearDisplay();
+    //     //
+    //     // writeAbove(szWallDistance);
+    //     if (!isCloseToWall(wallDistance))
+    //     {
+    //         return;
+    //     }
 
-    char szSc[10];
-    dtostrf(sensorSC, 4, 3, szSc);
-    writeAbove(szSc);
-    */
+    //     servoLeft();
+    //     wallDistance = getDistance();
+    //     dtostrf(wallDistance, 3, 2, szWallDistance);
+    //     // clearDisplay();
+    //     //
+    //     // writeAbove(szWallDistance);
+    //     if (!isCloseToWall(wallDistance))
+    //     {
+    //         turnLeft();
+    //         servoFront();
+    //         return;
+    //     }
 
-    enableMotors();
+    //     turnAround();
+    // }
+    followLine();
+
+    // delay(500);
 }
