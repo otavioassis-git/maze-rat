@@ -378,8 +378,13 @@ void pwmMotors(int pwm_right, int pwm_left) {
 float cSensor;
 float rSensor;
 float lSensor;
+float rcSensor;
+float lcSensor;
 float maxOptical[5] = {2000.0, 2000.0, 2000.0, 2000.0, 2000.0};
 
+int inCrossingTransition = 0;
+
+/* Primeira opção:
 void followLine() {
     // lendo os sensores e atualizando o maxOptical caso necessário
     cSensor = float(getSCReading());
@@ -403,6 +408,71 @@ void followLine() {
     // calculando o valor absoluto da velocidade para cada motor
     float pwm_sr = 128 - rSpeed;
     float pwm_sl = 128 + lSpeed;
+
+    enableMotors();
+    pwmMotors(int(pwm_sr), int(pwm_sl));
+
+    clearDisplay();
+    char szRSensor[10];
+    char szLSensor[10];
+    dtostrf(pwm_sr, 4, 3, szRSensor);
+    dtostrf(pwm_sl, 4, 3, szLSensor);
+    writeAbove(szRSensor);
+    writeBelow(szLSensor);
+}
+*/
+
+/* Primeira opção com detecção de cruzamento*/
+void followLine() {
+    // lendo os sensores e atualizando o maxOptical caso necessário
+    cSensor = float(getSCReading());
+    if (cSensor > maxOptical[0]) maxOptical[0] = cSensor;
+
+    rSensor = float(getSRReading());
+    if (rSensor > maxOptical[1]) maxOptical[1] = rSensor;
+
+    lSensor = float(getSLReading());
+    if (lSensor > maxOptical[2]) maxOptical[2] = lSensor;
+
+    float pwm_sr = 0.0;
+    float pwm_sl = 0.0;
+    float rSpeed = 0.0;
+    float lSpeed = 0.0;
+
+    // detectando cruzamento
+    if (cSensor > 1000 && rSensor > 1000 && lSensor > 1000 || inCrossingTransition) {
+        rcSensor = float(getSRCReading());
+        lcSensor = float(getSLCReading());
+
+        // detecta se já chegou no cruzamento (para testes por enquanto vou fazer ele só parar (acho que esse lógica nem tinha que estar aqui, só estou colocando para testar mesmo))
+        //  coloquei um || para caso ele não faça alguma curva e só detecte um lado primeiro (lembrar que a gente vai ter que ver o mult p/ as rodas girarem na msm vel.)
+        if (rcSensor > 1000 || lcSensor > 1000) {
+            pwm_sr = 0.0;
+            pwm_sl = 0.0;
+        } else {
+            // caso precise colocar um multiplicador para as duas rodas girarem na mesma velocidade
+            rSpeed = 1.0 * MIN_SPEED;
+            lSpeed = 1.0 * MIN_SPEED;
+
+            pwm_sr = 128 - rSpeed;
+            pwm_sl = 128 + lSpeed;
+        }
+
+        inCrossingTransition = 1;
+    } else {
+        // calculando as taxas
+        float scRate = cSensor / maxOptical[0];
+        float srRate = (1 - (rSensor / maxOptical[1]));
+        float slRate = (1 - (lSensor / maxOptical[2]));
+
+        // calculando a velocidade a ser somada
+        rSpeed = scRate * srRate * MAX_SPEED;
+        lSpeed = scRate * slRate * MAX_SPEED;
+
+        // calculando o valor absoluto da velocidade para cada motor
+        pwm_sr = 128 - rSpeed;
+        pwm_sl = 128 + lSpeed;
+    }
 
     enableMotors();
     pwmMotors(int(pwm_sr), int(pwm_sl));
