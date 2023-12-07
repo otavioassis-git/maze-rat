@@ -531,8 +531,6 @@ void turnAround() {
 ////////////////////////////////////////////////////// SEGUE LINHA FIM
 
 ///////////////////////////////////////////////////// UTILS
-float rcSensor;
-float lcSensor;
 
 byte isCloseToWall(float distance) {
     if (distance > 30)
