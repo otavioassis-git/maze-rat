@@ -375,29 +375,34 @@ void pwmMotors(int pwm_right, int pwm_left) {
 ////////////////////////////////////////////////////// FIM MOTORES
 
 ////////////////////////////////////////////////////// SEGUE LINHA
+float cSensor;
 float rSensor;
 float lSensor;
-
-/*
-    int pwm_sr = int(lSensor * ratio_controller_pwm)+64;
-    int pwm_sl = 2*Pwm_Limit - (int(rSensor * ratio_controller_pwm)+64);
-*/
+float maxOptical[5] = {2000.0, 2000.0, 2000.0, 2000.0, 2000.0};
 
 void followLine() {
-    float rSensor = float(getSRReading());
-    float lSensor = float(getSLReading());
-    float pwm_sr = 0;
-    float pwm_sl = 0;
+    // lendo os sensores e atualizando o maxOptical caso necessário
+    cSensor = float(getSCReading());
+    if (cSensor > maxOptical[0]) maxOptical[0] = cSensor;
 
-    pwm_sr = 128 - ((1 - (rSensor / MAX_OPTICAL)) * MAX_SPEED);
-    pwm_sl = 128 + ((1 - (lSensor / MAX_OPTICAL)) * MAX_SPEED);
+    rSensor = float(getSRReading());
+    if (rSensor > maxOptical[1]) maxOptical[1] = rSensor;
 
-    Serial.println(rSensor);
-    Serial.println(lSensor);
-    Serial.println("----------------");
-    Serial.println(pwm_sr);
-    Serial.println(pwm_sl);
-    Serial.println("////////////////");
+    lSensor = float(getSLReading());
+    if (lSensor > maxOptical[2]) maxOptical[2] = lSensor;
+
+    // calculando as taxas
+    float scRate = cSensor / maxOptical[0];
+    float srRate = (1 - (rSensor / maxOptical[1]));
+    float slRate = (1 - (lSensor / maxOptical[2]));
+
+    // calculando a velocidade a ser somada
+    float rSpeed = scRate * srRate * MAX_SPEED;
+    float lSpeed = scRate * slRate * MAX_SPEED;
+
+    // calculando o valor absoluto da velocidade para cada motor
+    float pwm_sr = 128 - rSpeed;
+    float pwm_sl = 128 + lSpeed;
 
     enableMotors();
     pwmMotors(int(pwm_sr), int(pwm_sl));
