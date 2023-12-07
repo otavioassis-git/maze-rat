@@ -128,9 +128,6 @@ float getDistance() {
 ////////////////////////////////////////////////////// FIM ULTRASSOM
 
 ///////////////////////////////////////////////////// OPTICOS
-float readingsOptical[5][3];
-int sizeReadingsOptical[5] = {0, 0, 0, 0, 0};
-
 void setupOpticalSensors() {
     pinMode(SC, INPUT);
     pinMode(SL, INPUT);
@@ -139,80 +136,29 @@ void setupOpticalSensors() {
     pinMode(SRC, INPUT);
 }
 
-int returnOpticalReading(int pin) {
-    float mean = 0;
-    switch (pin) {
-        case SC:
-            mean = analogRead(SC);
-            break;
-
-        case SL:
-            mean = analogRead(SL);
-            break;
-
-        case SR:
-            mean = analogRead(SR);
-            break;
-
-        case SLC:
-            mean = analogRead(SLC);
-            break;
-
-        case SRC:
-            mean = analogRead(SRC);
-            break;
-    }
-    return mean;
-}
-
-float calculateOpticalReadingsMean(int id, int pin) {
-    int reading = analogRead(pin);
-
-    // atualiza o vetor com as leituras
-    if (sizeReadingsOptical[id] == 3) {
-        // retira a última leitura e coloca a nova
-        for (int i = 2; i > 0; i--) {
-            readingsOptical[id][i] = readingsOptical[id][i - 1];
-        }
-        readingsOptical[id][0] = reading;
-    } else {
-        // caso o vetor ainda não esteja cheio insere na última posição
-        readingsOptical[id][sizeReadingsOptical[id]] = reading;
-        sizeReadingsOptical[id]++;
-    }
-
-    // calcula a média das últimas leituras
-    float sum = 0;
-    for (int i = 0; i < sizeReadingsOptical[id]; i++) {
-        sum += readingsOptical[id][i];
-    }
-
-    return sum / sizeReadingsOptical[id];
-}
-
 // Retorna a leitura do sensor óptio central
 int getSCReading() {
-    return returnOpticalReading(SC);
+    return analogRead(SC);
 }
 
 // Retorna a leitura do sensor óptio esquerdo
 int getSLReading() {
-    return returnOpticalReading(SL);
+    return analogRead(SL);
 }
 
 // Retorna a leitura do sensor óptio direito
 int getSRReading() {
-    return returnOpticalReading(SR);
+    return analogRead(SR);
 }
 
 // Retorna a leitura do sensor óptio esquerdo central
 int getSLCReading() {
-    return returnOpticalReading(SLC);
+    return analogRead(SLC);
 }
 
 // Retorna a leitura do sensor óptio direito central
 int getSRCReading() {
-    return returnOpticalReading(SRC);
+    return analogRead(SRC);
 }
 
 ///////////////////////////////////////////////////// FIM OPTICOS
