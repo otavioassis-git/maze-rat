@@ -54,11 +54,6 @@ const int DATA[] = {4, 0, 2, 15};
 #define PWM1_Res 8
 #define PWM1_Freq 1000
 
-#define Controller_Limit 4096
-#define Pwm_Limit 128
-
-float ratio_controller_pwm = float(Pwm_Limit) / Controller_Limit;
-
 /////////////////////////////////////////////////// SERVO
 
 Servo myServo;
@@ -69,18 +64,22 @@ void setupServo() {
 
 void servoMoveAngle(int angle) {
     myServo.write(angle);
+    delay(500);
 }
 
 void servoFront() {
     myServo.write(FRONT_ANGLE);
+    delay(500);
 }
 
 void servoLeft() {
     myServo.write(LEFT_ANGLE);
+    delay(500);
 }
 
 void servoRight() {
     myServo.write(RIGHT_ANGLE);
+    delay(500);
 }
 
 /////////////////////////////////////////////////// FIM SERVO
@@ -100,7 +99,7 @@ float getDistance() {
     digitalWrite(EN_TRIG, LOW);
     delayMicroseconds(10);
     digitalWrite(EN_TRIG, HIGH);
-    delayMicroseconds(10);
+    delayMicroseconds(250);
     digitalWrite(EN_TRIG, LOW);
     delayMicroseconds(10);
 
@@ -129,9 +128,6 @@ float getDistance() {
 ////////////////////////////////////////////////////// FIM ULTRASSOM
 
 ///////////////////////////////////////////////////// OPTICOS
-float readingsOptical[5][5];
-int sizeReadingsOptical[5] = {0, 0, 0, 0, 0};
-
 void setupOpticalSensors() {
     pinMode(SC, INPUT);
     pinMode(SL, INPUT);
@@ -140,73 +136,29 @@ void setupOpticalSensors() {
     pinMode(SRC, INPUT);
 }
 
-float returnOpticalReading(int pin) {
-    switch (pin) {
-        case SC:
-            return calculateOpticalReadingsMean(0, SC);
-
-        case SL:
-            return calculateOpticalReadingsMean(1, SL);
-
-        case SR:
-            return calculateOpticalReadingsMean(2, SR);
-
-        case SLC:
-            return calculateOpticalReadingsMean(3, SLC);
-
-        case SRC:
-            return calculateOpticalReadingsMean(4, SRC);
-    }
-}
-
-float calculateOpticalReadingsMean(int id, int pin) {
-    int reading = analogRead(pin);
-
-    // atualiza o vetor com as leituras
-    if (sizeReadingsOptical[id] == 5) {
-        // retira a última leitura e coloca a nova
-        for (int i = 4; i > 0; i++) {
-            readingsOptical[id][i] = readingsOptical[id][i - 1];
-        }
-        readingsOptical[id][0] = reading;
-    } else {
-        // caso o vetor ainda não esteja cheio insere na última posição
-        readingsOptical[id][sizeReadingsOptical[id]] = reading;
-        sizeReadingsOptical[id]++;
-    }
-
-    // calcula a média das últimas leituras
-    float sum = 0;
-    for (int i = 0; i < sizeReadingsOptical[id]; i++) {
-        sum += readingsOptical[id][i];
-    }
-
-    return sum / sizeReadingsOptical[id];
-}
-
 // Retorna a leitura do sensor óptio central
-float getSCReading() {
-    return returnOpticalReading(SC);
+int getSCReading() {
+    return analogRead(SC);
 }
 
 // Retorna a leitura do sensor óptio esquerdo
-float getSLReading() {
-    return returnOpticalReading(SL);
+int getSLReading() {
+    return analogRead(SL);
 }
 
 // Retorna a leitura do sensor óptio direito
-float getSRReading() {
-    return returnOpticalReading(SR);
+int getSRReading() {
+    return analogRead(SR);
 }
 
 // Retorna a leitura do sensor óptio esquerdo central
-float getSLCReading() {
-    return returnOpticalReading(SLC);
+int getSLCReading() {
+    return analogRead(SLC);
 }
 
 // Retorna a leitura do sensor óptio direito central
-float getSRCReading() {
-    return returnOpticalReading(SRC);
+int getSRCReading() {
+    return analogRead(SRC);
 }
 
 ///////////////////////////////////////////////////// FIM OPTICOS
@@ -289,6 +241,11 @@ void write4bits(int value) {
         digitalWrite(DATA[i], (value >> (3 - i)) & 0x1);
     }
     pulseEnable();
+
+    for (int i = 0; i < 4; i++) {
+        // Only the value corresponding to the bit of interest
+        digitalWrite(DATA[i], 0);
+    }
 }
 
 /* ------------------------------------------------------
@@ -301,7 +258,7 @@ void write8bits(int value) {
     write4bits(value);
 }
 
-void writeAbove(const char* value) {
+void writeAbove(const char *value) {
     write8bits(RETURN_HOME);
     delay(2);  // 1.52ms delay needed for the Return Home command
 
@@ -315,7 +272,7 @@ void writeAbove(const char* value) {
     }
 }
 
-void writeBelow(const char* value) {
+void writeBelow(const char *value) {
     write8bits(RETURN_HOME);
     delay(2);  // 1.52ms delay needed for the Return Home command
     for (int i = 0; i < 40; i++) {
@@ -338,11 +295,8 @@ void setupMotors() {
     pinMode(E_CH1, OUTPUT);
     pinMode(E_CH2, OUTPUT);
 
-    ledcAttachPin(CHA_M1, PWM1_Ch);
-    ledcSetup(PWM1_Ch, PWM1_Freq, PWM1_Res);
-
-    ledcAttachPin(CHA_M2, PWM2_Ch);
-    ledcSetup(PWM2_Ch, PWM1_Freq, PWM1_Res);
+    pinMode(CHA_M1, OUTPUT);
+    pinMode(CHA_M2, OUTPUT);
 }
 
 void enableMotors() {
@@ -358,22 +312,123 @@ void disableMotors() {
 }
 
 void pwmMotors(int pwm_right, int pwm_left) {
-    ledcWrite(PWM1_Ch, pwm_right);
-    ledcWrite(PWM2_Ch, pwm_left);
+    analogWrite(CHA_M1, pwm_right);
+    analogWrite(CHA_M2, pwm_left);
 }
 ////////////////////////////////////////////////////// FIM MOTORES
 
 ////////////////////////////////////////////////////// SEGUE LINHA
-void segueLinha() {
-    int sr_value = getSRReading();
-    int sl_value = getSLReading();
+#define CROSSING_OFFSET 1500
 
-    int pwm_sr = Pwm_Limit - int(sr_value * ratio_controller_pwm);
-    float pwm_sl = Pwm_Limit + int(sl_value * ratio_controller_pwm);
+float rSensor;
+float lSensor;
+float rcSensor;
+float lcSensor;
 
-    pwmMotors(pwm_sl, pwm_sr);
+float MIN_SPEED = 30.0;
+
+void followLine() {
+    // lendo os sensores e atualizando o maxOptical caso necessário
+    rSensor = float(getSRReading());
+    lSensor = float(getSLReading());
+
+    if (rSensor >= CROSSING_OFFSET && lSensor >= CROSSING_OFFSET) {
+        MIN_SPEED = 20.0;
+    }
+
+    float kp = 0.007;
+
+    // calculando a velocidade a ser somada
+    float rSpeed = kp * lSensor;
+    float lSpeed = kp * rSensor;
+
+    // calculando o valor absoluto da velocidade para cada motor
+    float pwm_sr = 128 + (rSpeed + MIN_SPEED);
+    float pwm_sl = 128 - (lSpeed + MIN_SPEED);
+
+    enableMotors();
+    pwmMotors(int(pwm_sr), int(pwm_sl));
+
+    clearDisplay();
+    char szRSensor[10];
+    char szLSensor[10];
+    dtostrf(pwm_sr, 4, 3, szRSensor);
+    dtostrf(pwm_sl, 4, 3, szLSensor);
+    writeAbove(szRSensor);
+    writeBelow(szLSensor);
+    // delay(50);
+}
+
+void turnRight() {
+    enableMotors();
+    pwmMotors(88, 88);
+
+    while (float scReading = getSCReading()) {
+        if (scReading < 300) {
+            break;
+        }
+    }
+
+    pwmMotors(108, 108);
+    delay(300);
+    while (float scReading = getSCReading()) {
+        if (scReading > 2 * CROSSING_OFFSET) {
+            break;
+        }
+    }
+}
+
+void turnLeft() {
+    enableMotors();
+    pwmMotors(168, 168);
+
+    while (float scReading = getSCReading()) {
+        if (scReading < 300) {
+            break;
+        }
+    }
+    delay(500);
+    while (float scReading = getSCReading()) {
+        if (scReading > 2 * CROSSING_OFFSET) {
+            break;
+        }
+    }
+    disableMotors();
+    delay(500);
+}
+
+void turnAround() {
+    turnRight();
+    turnRight();
 }
 ////////////////////////////////////////////////////// SEGUE LINHA FIM
+
+///////////////////////////////////////////////////// UTILS
+
+byte isCloseToWall(float distance) {
+    if (distance > 30)
+        return false;
+    return true;
+}
+
+byte isOverCrossing() {
+    rcSensor = getSRCReading();
+    lcSensor = getSLCReading();
+    if (rcSensor > CROSSING_OFFSET && lcSensor > CROSSING_OFFSET)
+        return true;
+    return false;
+}
+
+///////////////////////////////////////////////////// FIM UTILS
+
+///////////////////////////////////////////// GLOBALS
+
+byte bCloseToWall = false;
+
+float wallDistance = 400;
+char szWallDistance[10];
+
+///////////////////////////////////////////// FIM GLOBALS
 
 void setup() {
     setupOpticalSensors();
@@ -382,29 +437,58 @@ void setup() {
     setupServo();
     setupMotors();
     Serial.begin(115200);  // ESP32
+    servoFront();
 }
 
 void loop() {
-    /*
-    float distance = getDistance();
-    char szDistance[10];
+    if (!isOverCrossing()) {
+        followLine();
+    } else {
+        disableMotors();
+        MIN_SPEED = 30;
+        servoRight();
+        wallDistance = getDistance();
+        Serial.println(wallDistance);
+        dtostrf(wallDistance, 3, 2, szWallDistance);
+        clearDisplay();
+        writeAbove("Distancia parede");
+        writeBelow(szWallDistance);
+        if (!isCloseToWall(wallDistance)) {
+            Serial.println("Virando direita");
+            turnRight();
+            servoFront();
+            followLine();
+            delay(500);
+            return;
+        }
 
-    //4 is mininum width, 3 is precision; float value is copied onto buffer szDistance
-    dtostrf(distance, 4, 3, szDistance);
+        servoFront();
+        wallDistance = getDistance();
+        dtostrf(wallDistance, 3, 2, szWallDistance);
+        clearDisplay();
+        writeAbove(szWallDistance);
+        if (!isCloseToWall(wallDistance)) {
+            Serial.println("Seguindo em frente");
+            followLine();
+            delay(500);
+            return;
+        }
 
-    Serial.println(distance);
-    writeAbove("a");
-    delay(100);
-    */
+        servoLeft();
+        wallDistance = getDistance();
+        dtostrf(wallDistance, 3, 2, szWallDistance);
+        clearDisplay();
+        writeAbove(szWallDistance);
+        if (!isCloseToWall(wallDistance)) {
+            Serial.println("Virando esquerda");
+            turnLeft();
+            servoFront();
+            followLine();
+            delay(500);
+            return;
+        }
 
-    /*
-    float sensorSC = getSCReading();
-    Serial.println(sensorSC);
-
-    char szSc[10];
-    dtostrf(sensorSC, 4, 3, szSc);
-    writeAbove(szSc);
-    */
-
-    enableMotors();
+        turnAround();
+        servoFront();
+    }
 }
