@@ -54,10 +54,6 @@ const int DATA[] = {4, 0, 2, 15};
 #define PWM1_Res 8
 #define PWM1_Freq 1000
 
-#define MAX_OPTICAL 2400.0
-#define MAX_SPEED 32.0
-#define MIN_SPEED 10.0
-
 /////////////////////////////////////////////////// SERVO
 
 Servo myServo;
@@ -68,18 +64,22 @@ void setupServo() {
 
 void servoMoveAngle(int angle) {
     myServo.write(angle);
+    delay(500);
 }
 
 void servoFront() {
     myServo.write(FRONT_ANGLE);
+    delay(500);
 }
 
 void servoLeft() {
     myServo.write(LEFT_ANGLE);
+    delay(500);
 }
 
 void servoRight() {
     myServo.write(RIGHT_ANGLE);
+    delay(500);
 }
 
 /////////////////////////////////////////////////// FIM SERVO
@@ -99,7 +99,7 @@ float getDistance() {
     digitalWrite(EN_TRIG, LOW);
     delayMicroseconds(10);
     digitalWrite(EN_TRIG, HIGH);
-    delayMicroseconds(10);
+    delayMicroseconds(250);
     digitalWrite(EN_TRIG, LOW);
     delayMicroseconds(10);
 
@@ -295,11 +295,8 @@ void setupMotors() {
     pinMode(E_CH1, OUTPUT);
     pinMode(E_CH2, OUTPUT);
 
-    ledcAttachPin(CHA_M1, PWM1_Ch);
-    ledcSetup(PWM1_Ch, PWM1_Freq, PWM1_Res);
-
-    ledcAttachPin(CHA_M2, PWM2_Ch);
-    ledcSetup(PWM2_Ch, PWM1_Freq, PWM1_Res);
+    pinMode(CHA_M1, OUTPUT);
+    pinMode(CHA_M2, OUTPUT);
 }
 
 void enableMotors() {
@@ -315,111 +312,40 @@ void disableMotors() {
 }
 
 void pwmMotors(int pwm_right, int pwm_left) {
-    ledcWrite(PWM1_Ch, pwm_right);
-    ledcWrite(PWM2_Ch, pwm_left);
+    analogWrite(CHA_M1, pwm_right);
+    analogWrite(CHA_M2, pwm_left);
 }
 ////////////////////////////////////////////////////// FIM MOTORES
 
 ////////////////////////////////////////////////////// SEGUE LINHA
-float cSensor;
+#define CROSSING_OFFSET 1500
+
 float rSensor;
 float lSensor;
 float rcSensor;
 float lcSensor;
-float maxOptical[5] = {2000.0, 2000.0, 2000.0, 2000.0, 2000.0};
 
-int inCrossingTransition = 0;
+float MIN_SPEED = 30.0;
 
-/* Primeira opção:
 void followLine() {
     // lendo os sensores e atualizando o maxOptical caso necessário
-    cSensor = float(getSCReading());
-    if (cSensor > maxOptical[0]) maxOptical[0] = cSensor;
-
     rSensor = float(getSRReading());
-    if (rSensor > maxOptical[1]) maxOptical[1] = rSensor;
-
     lSensor = float(getSLReading());
-    if (lSensor > maxOptical[2]) maxOptical[2] = lSensor;
 
-    // calculando as taxas
-    float scRate = cSensor / maxOptical[0];
-    float srRate = (1 - (rSensor / maxOptical[1]));
-    float slRate = (1 - (lSensor / maxOptical[2]));
-
-    // calculando a velocidade a ser somada
-    float rSpeed = scRate * srRate * MAX_SPEED;
-    float lSpeed = scRate * slRate * MAX_SPEED;
-
-    // calculando o valor absoluto da velocidade para cada motor
-    float pwm_sr = 128 - rSpeed;
-    float pwm_sl = 128 + lSpeed;
-
-    enableMotors();
-    pwmMotors(int(pwm_sr), int(pwm_sl));
-
-    clearDisplay();
-    char szRSensor[10];
-    char szLSensor[10];
-    dtostrf(pwm_sr, 4, 3, szRSensor);
-    dtostrf(pwm_sl, 4, 3, szLSensor);
-    writeAbove(szRSensor);
-    writeBelow(szLSensor);
-}
-*/
-
-/* Primeira opção com detecção de cruzamento*/
-void followLine() {
-    // lendo os sensores e atualizando o maxOptical caso necessário
-    cSensor = float(getSCReading());
-    if (cSensor > maxOptical[0]) maxOptical[0] = cSensor;
-
-    rSensor = float(getSRReading());
-    if (rSensor > maxOptical[1]) maxOptical[1] = rSensor;
-
-    lSensor = float(getSLReading());
-    if (lSensor > maxOptical[2]) maxOptical[2] = lSensor;
-
-    float pwm_sr = 0.0;
-    float pwm_sl = 0.0;
-    float rSpeed = 0.0;
-    float lSpeed = 0.0;
-
-    // detectando cruzamento
-    if (cSensor > 1000 && rSensor > 1000 && lSensor > 1000 || inCrossingTransition) {
-        rcSensor = float(getSRCReading());
-        lcSensor = float(getSLCReading());
-
-        // detecta se já chegou no cruzamento (para testes por enquanto vou fazer ele só parar (acho que esse lógica nem tinha que estar aqui, só estou colocando para testar mesmo))
-        //  coloquei um || para caso ele não faça alguma curva e só detecte um lado primeiro (lembrar que a gente vai ter que ver o mult p/ as rodas girarem na msm vel.)
-        if (rcSensor > 1000 || lcSensor > 1000) {
-            pwm_sr = 0.0;
-            pwm_sl = 0.0;
-        } else {
-            // caso precise colocar um multiplicador para as duas rodas girarem na mesma velocidade
-            rSpeed = 1.0 * MIN_SPEED;
-            lSpeed = 1.0 * MIN_SPEED;
-
-            pwm_sr = 128 - rSpeed;
-            pwm_sl = 128 + lSpeed;
-        }
-
-        inCrossingTransition = 1;
-    } else {
-        // calculando as taxas
-        float scRate = cSensor / maxOptical[0];
-        float srRate = (1 - (rSensor / maxOptical[1]));
-        float slRate = (1 - (lSensor / maxOptical[2]));
-
-        // calculando a velocidade a ser somada
-        rSpeed = scRate * srRate * MAX_SPEED;
-        lSpeed = scRate * slRate * MAX_SPEED;
-
-        // calculando o valor absoluto da velocidade para cada motor
-        pwm_sr = 128 - rSpeed;
-        pwm_sl = 128 + lSpeed;
+    if (rSensor >= CROSSING_OFFSET && lSensor >= CROSSING_OFFSET) {
+        MIN_SPEED = 20.0;
     }
 
+    float kp = 0.007;
+
+    // calculando a velocidade a ser somada
+    float rSpeed = kp * lSensor;
+    float lSpeed = kp * rSensor;
+
+    // calculando o valor absoluto da velocidade para cada motor
+    float pwm_sr = 128 + (rSpeed + MIN_SPEED);
+    float pwm_sl = 128 - (lSpeed + MIN_SPEED);
+
     enableMotors();
     pwmMotors(int(pwm_sr), int(pwm_sl));
 
@@ -430,11 +356,12 @@ void followLine() {
     dtostrf(pwm_sl, 4, 3, szLSensor);
     writeAbove(szRSensor);
     writeBelow(szLSensor);
+    // delay(50);
 }
 
 void turnRight() {
     enableMotors();
-    pwmMotors(20, 20);
+    pwmMotors(88, 88);
 
     while (float scReading = getSCReading()) {
         if (scReading < 300) {
@@ -442,32 +369,32 @@ void turnRight() {
         }
     }
 
+    pwmMotors(108, 108);
+    delay(300);
     while (float scReading = getSCReading()) {
-        if (scReading > 1000) {
+        if (scReading > 2 * CROSSING_OFFSET) {
             break;
         }
     }
-
-    disableMotors();
 }
 
 void turnLeft() {
     enableMotors();
-    pwmMotors(236, 236);
+    pwmMotors(168, 168);
 
     while (float scReading = getSCReading()) {
         if (scReading < 300) {
             break;
         }
     }
-
+    delay(500);
     while (float scReading = getSCReading()) {
-        if (scReading > 1000) {
+        if (scReading > 2 * CROSSING_OFFSET) {
             break;
         }
     }
-
     disableMotors();
+    delay(500);
 }
 
 void turnAround() {
@@ -484,7 +411,6 @@ byte isCloseToWall(float distance) {
     return true;
 }
 
-#define CROSSING_OFFSET 1500
 byte isOverCrossing() {
     rcSensor = getSRCReading();
     lcSensor = getSLCReading();
@@ -510,58 +436,59 @@ void setup() {
     setupLcd();
     setupServo();
     setupMotors();
-    enableMotors();
     Serial.begin(115200);  // ESP32
     servoFront();
 }
 
 void loop() {
-    // followLine();
-    // if (isOverCrossing())
-    // {
-    //     disableMotors();
+    if (!isOverCrossing()) {
+        followLine();
+    } else {
+        disableMotors();
+        MIN_SPEED = 30;
+        servoRight();
+        wallDistance = getDistance();
+        Serial.println(wallDistance);
+        dtostrf(wallDistance, 3, 2, szWallDistance);
+        clearDisplay();
+        writeAbove("Distancia parede");
+        writeBelow(szWallDistance);
+        if (!isCloseToWall(wallDistance)) {
+            Serial.println("Virando direita");
+            turnRight();
+            servoFront();
+            followLine();
+            delay(500);
+            return;
+        }
 
-    //     servoRight();
-    //     wallDistance = getDistance();
-    //     dtostrf(wallDistance, 3, 2, szWallDistance);
+        servoFront();
+        wallDistance = getDistance();
+        dtostrf(wallDistance, 3, 2, szWallDistance);
+        clearDisplay();
+        writeAbove(szWallDistance);
+        if (!isCloseToWall(wallDistance)) {
+            Serial.println("Seguindo em frente");
+            followLine();
+            delay(500);
+            return;
+        }
 
-    //     clearDisplay();
-    //     writeAbove("Distancia parede");
-    //     writeBelow(szWallDistance);
-    //     if (!isCloseToWall(wallDistance))
-    //     {
-    //         turnRight();
-    //         servoFront();
-    //         return;
-    //     }
+        servoLeft();
+        wallDistance = getDistance();
+        dtostrf(wallDistance, 3, 2, szWallDistance);
+        clearDisplay();
+        writeAbove(szWallDistance);
+        if (!isCloseToWall(wallDistance)) {
+            Serial.println("Virando esquerda");
+            turnLeft();
+            servoFront();
+            followLine();
+            delay(500);
+            return;
+        }
 
-    //     servoFront();
-    //     wallDistance = getDistance();
-    //     dtostrf(wallDistance, 3, 2, szWallDistance);
-    //     // clearDisplay();
-    //     //
-    //     // writeAbove(szWallDistance);
-    //     if (!isCloseToWall(wallDistance))
-    //     {
-    //         return;
-    //     }
-
-    //     servoLeft();
-    //     wallDistance = getDistance();
-    //     dtostrf(wallDistance, 3, 2, szWallDistance);
-    //     // clearDisplay();
-    //     //
-    //     // writeAbove(szWallDistance);
-    //     if (!isCloseToWall(wallDistance))
-    //     {
-    //         turnLeft();
-    //         servoFront();
-    //         return;
-    //     }
-
-    //     turnAround();
-    // }
-    followLine();
-
-    // delay(500);
+        turnAround();
+        servoFront();
+    }
 }
