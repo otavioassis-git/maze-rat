@@ -1,4 +1,5 @@
 #include <ESP32Servo.h>
+#include <MPU6050_light.h>
 #include <string.h>
 
 // Pinos servo motor
@@ -17,6 +18,10 @@
 #define SR 39
 #define SLC 36
 #define SRC 32
+
+// Pinos sensor giroscópio
+#define SDA 21
+#define SDL 22
 
 const int DATA[] = {4, 0, 2, 15};
 #define DATA_SIZE 4
@@ -47,12 +52,6 @@ const int DATA[] = {4, 0, 2, 15};
 #define E_CH2 26
 #define CHA_M2 27
 #define CS_Sensors 5
-
-// config pwm
-#define PWM1_Ch 0
-#define PWM2_Ch 1
-#define PWM1_Res 8
-#define PWM1_Freq 1000
 
 /////////////////////////////////////////////////// SERVO
 
