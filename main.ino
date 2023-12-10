@@ -2,6 +2,8 @@
 #include <MPU6050_light.h>
 #include <string.h>
 
+#include "Wire.h"
+
 // Pinos servo motor
 #define SERVO_PIN 13
 #define FRONT_ANGLE 80
@@ -161,6 +163,56 @@ int getSRCReading() {
 }
 
 ///////////////////////////////////////////////////// FIM OPTICOS
+
+///////////////////////////////////////////////////// GIROSCÓPIO
+
+MPU6050 mpu(Wire);
+
+void setupGyro() {
+    Wire.begin();
+    byte status = mpu.begin();
+    Serial.print(F("MPU6050 status: "));
+    while (status != 0) {
+    }  // stop everything if could not connect to MPU6050
+
+    Serial.println(F("Calculating offsets, do not move MPU6050"));
+    delay(1000);
+    // mpu.upsideDownMounting = true; // uncomment this line if the MPU6050 is mounted upside-down
+    mpu.calcOffsets();  // gyro and accelero
+    Serial.println("Done!\n");
+}
+
+void showAngles() {
+    mpu.update();
+    delay(10);
+
+    Serial.print("X : ");
+    Serial.print(mpu.getAngleX());
+    Serial.print("\tY : ");
+    Serial.print(mpu.getAngleY());
+    Serial.print("\tZ : ");
+    Serial.println(mpu.getAngleZ());
+}
+
+int getAngleX() {
+    mpu.update();
+    delay(10);
+    return mpu.getAngleX();
+}
+
+int getAngleY() {
+    mpu.update();
+    delay(10);
+    return mpu.getAngleY();
+}
+
+int getAngleZ() {
+    mpu.update();
+    delay(10);
+    return mpu.getAngleZ();
+}
+
+///////////////////////////////////////////////////// FIM GIROSCÓPIO
 
 ////////////////////////////////////////////////////// LCD
 void setupLcd() {
@@ -436,10 +488,13 @@ void setup() {
     setupServo();
     setupMotors();
     Serial.begin(115200);  // ESP32
+    setupGyro();           // tem que ficar depois do Serial.begin
     servoFront();
 }
 
 void loop() {
+    showAngles();
+    /*
     if (!isOverCrossing()) {
         followLine();
     } else {
@@ -490,4 +545,5 @@ void loop() {
         turnAround();
         servoFront();
     }
+    */
 }
