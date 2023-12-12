@@ -86,8 +86,6 @@ void servoRight() {
 /////////////////////////////////////////////////// FIM SERVO
 
 /////////////////////////////////////////////////// ULTRASSOM
-float readingsUltrasonic[3];
-int sizeReadingsUltrasonic = 0;
 
 // Setup do sensor ultrassonico
 void setupUltrassonicSensor() {
@@ -95,7 +93,7 @@ void setupUltrassonicSensor() {
     pinMode(EN_TRIG, OUTPUT);
 }
 
-// Retorna a média das últimas 3 distâncias em centímetros
+// Retorna a distâncias em centímetros
 float getDistance() {
     digitalWrite(EN_TRIG, LOW);
     delayMicroseconds(10);
@@ -107,25 +105,19 @@ float getDistance() {
     unsigned long duration = pulseIn(MISO_ECHO, HIGH);
     float distance = duration / 58;
 
-    if (sizeReadingsUltrasonic == 3) {
-        // retira a última leitura e coloca a nova
-        readingsUltrasonic[2] = readingsUltrasonic[1];
-        readingsUltrasonic[1] = readingsUltrasonic[0];
-        readingsUltrasonic[0] = distance;
-    } else {
-        // caso o vetor ainda não esteja cheio insere na última posição
-        readingsUltrasonic[sizeReadingsUltrasonic] = distance;
-        sizeReadingsUltrasonic++;
-    }
-
-    // calcula e retorna a média das últimas leituras
-    float sum = 0;
-    for (int i = 0; i < sizeReadingsUltrasonic; i++) {
-        sum += readingsUltrasonic[i];
-    }
-
-    return sum / sizeReadingsUltrasonic;
+    return distance;
 }
+
+// Retorna a média da leitura de 3 distâncias
+float getDistanceMean() {
+    float sum = 0.0;
+    for (int i = 0; i < 3; i++) {
+        sum += getDistance();
+    }
+
+    return sum / 3;
+}
+
 ////////////////////////////////////////////////////// FIM ULTRASSOM
 
 ///////////////////////////////////////////////////// OPTICOS
@@ -182,31 +174,7 @@ void setupGyro() {
     Serial.println("Done!\n");
 }
 
-void showAngles() {
-    mpu.update();
-    delay(10);
-
-    Serial.print("X : ");
-    Serial.print(mpu.getAngleX());
-    Serial.print("\tY : ");
-    Serial.print(mpu.getAngleY());
-    Serial.print("\tZ : ");
-    Serial.println(mpu.getAngleZ());
-}
-
-int getAngleX() {
-    mpu.update();
-    delay(10);
-    return mpu.getAngleX();
-}
-
-int getAngleY() {
-    mpu.update();
-    delay(10);
-    return mpu.getAngleY();
-}
-
-int getAngleZ() {
+int getAngle() {
     mpu.update();
     delay(10);
     return mpu.getAngleZ();
@@ -376,7 +344,8 @@ float lSensor;
 float rcSensor;
 float lcSensor;
 
-float MIN_SPEED = 30.0;
+float MIN_SPEED_R = 30.0;
+float MIN_SPEED_L = 50.0;
 
 void followLine() {
     // lendo os sensores e atualizando o maxOptical caso necessário
@@ -384,80 +353,56 @@ void followLine() {
     lSensor = float(getSLReading());
 
     if (rSensor >= CROSSING_OFFSET && lSensor >= CROSSING_OFFSET) {
-        MIN_SPEED = 20.0;
+        MIN_SPEED_R = 20.0;
+        MIN_SPEED_L = 30.0;
     }
 
-    float kp = 0.007;
+    float kp = 0.006;
 
     // calculando a velocidade a ser somada
     float rSpeed = kp * lSensor;
     float lSpeed = kp * rSensor;
 
     // calculando o valor absoluto da velocidade para cada motor
-    float pwm_sr = 128 + (rSpeed + MIN_SPEED);
-    float pwm_sl = 128 - (lSpeed + MIN_SPEED);
+    float pwm_sr = 128 + (rSpeed + MIN_SPEED_R);
+    float pwm_sl = 128 - (lSpeed + MIN_SPEED_L);
 
-    enableMotors();
     pwmMotors(int(pwm_sr), int(pwm_sl));
-
-    clearDisplay();
-    char szRSensor[10];
-    char szLSensor[10];
-    dtostrf(pwm_sr, 4, 3, szRSensor);
-    dtostrf(pwm_sl, 4, 3, szLSensor);
-    writeAbove(szRSensor);
-    writeBelow(szLSensor);
-    // delay(50);
+    enableMotors();
 }
 
 void turnRight() {
-    enableMotors();
-    pwmMotors(88, 88);
-
-    while (float scReading = getSCReading()) {
-        if (scReading < 300) {
-            break;
-        }
+    int target = getAngle() - 85;
+    while (getAngle() > target) {
+        pwmMotors(88, 88);
+        enableMotors();
     }
-
-    pwmMotors(108, 108);
-    delay(300);
-    while (float scReading = getSCReading()) {
-        if (scReading > 2 * CROSSING_OFFSET) {
-            break;
-        }
-    }
+    disableMotors();
 }
 
 void turnLeft() {
-    enableMotors();
-    pwmMotors(168, 168);
-
-    while (float scReading = getSCReading()) {
-        if (scReading < 300) {
-            break;
-        }
-    }
-    delay(500);
-    while (float scReading = getSCReading()) {
-        if (scReading > 2 * CROSSING_OFFSET) {
-            break;
-        }
+    int target = getAngle() + 85;
+    while (getAngle() < target) {
+        pwmMotors(168, 168);
+        enableMotors();
     }
     disableMotors();
-    delay(500);
 }
 
 void turnAround() {
-    turnRight();
-    turnRight();
+    int target = getAngle() - 170;
+    while (getAngle() > target) {
+        pwmMotors(88, 88);
+        enableMotors();
+    }
+    disableMotors();
 }
 ////////////////////////////////////////////////////// SEGUE LINHA FIM
 
 ///////////////////////////////////////////////////// UTILS
 
 byte isCloseToWall(float distance) {
-    if (distance > 30)
+    if (distance > 40)
         return false;
     return true;
 }
@@ -484,7 +429,7 @@ char szWallDistance[10];
 void setup() {
     setupOpticalSensors();
     setupUltrassonicSensor();
-    setupLcd();
+    // setupLcd();
     setupServo();
     setupMotors();
     Serial.begin(115200);  // ESP32
@@ -493,26 +438,24 @@ void setup() {
 }
 
 void loop() {
-    showAngles();
-    /*
+    Serial.println(getDistance());
     if (!isOverCrossing()) {
         followLine();
     } else {
         disableMotors();
-        MIN_SPEED = 30;
+        MIN_SPEED_R = 30.0;
+        MIN_SPEED_L = 50.0;
         servoRight();
-        wallDistance = getDistance();
-        Serial.println(wallDistance);
-        dtostrf(wallDistance, 3, 2, szWallDistance);
-        clearDisplay();
-        writeAbove("Distancia parede");
-        writeBelow(szWallDistance);
+        wallDistance = getDistanceMean();
+        int count = 50;
         if (!isCloseToWall(wallDistance)) {
             Serial.println("Virando direita");
             turnRight();
             servoFront();
-            followLine();
-            delay(500);
+            for (int i = 0; i < count; i++) {
+                followLine();
+                delay(10);
+            }
             return;
         }
 
@@ -523,8 +466,10 @@ void loop() {
         writeAbove(szWallDistance);
         if (!isCloseToWall(wallDistance)) {
             Serial.println("Seguindo em frente");
-            followLine();
-            delay(500);
+            for (int i = 0; i < count; i++) {
+                followLine();
+                delay(10);
+            }
             return;
         }
 
@@ -537,13 +482,14 @@ void loop() {
             Serial.println("Virando esquerda");
             turnLeft();
             servoFront();
-            followLine();
-            delay(500);
+            for (int i = 0; i < count; i++) {
+                followLine();
+                delay(10);
+            }
             return;
         }
 
         turnAround();
         servoFront();
     }
-    */
 }
