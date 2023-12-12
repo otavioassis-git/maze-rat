@@ -1,5 +1,8 @@
 #include <ESP32Servo.h>
+#include <MPU6050_light.h>
 #include <string.h>
+
+#include "Wire.h"
 
 // Pinos servo motor
 #define SERVO_PIN 13
@@ -17,6 +20,10 @@
 #define SR 39
 #define SLC 36
 #define SRC 32
+
+// Pinos sensor giroscópio
+#define SDA 21
+#define SDL 22
 
 const int DATA[] = {4, 0, 2, 15};
 #define DATA_SIZE 4
@@ -47,12 +54,6 @@ const int DATA[] = {4, 0, 2, 15};
 #define E_CH2 26
 #define CHA_M2 27
 #define CS_Sensors 5
-
-// config pwm
-#define PWM1_Ch 0
-#define PWM2_Ch 1
-#define PWM1_Res 8
-#define PWM1_Freq 1000
 
 /////////////////////////////////////////////////// SERVO
 
@@ -85,8 +86,6 @@ void servoRight() {
 /////////////////////////////////////////////////// FIM SERVO
 
 /////////////////////////////////////////////////// ULTRASSOM
-float readingsUltrasonic[3];
-int sizeReadingsUltrasonic = 0;
 
 // Setup do sensor ultrassonico
 void setupUltrassonicSensor() {
@@ -94,7 +93,7 @@ void setupUltrassonicSensor() {
     pinMode(EN_TRIG, OUTPUT);
 }
 
-// Retorna a média das últimas 3 distâncias em centímetros
+// Retorna a distâncias em centímetros
 float getDistance() {
     digitalWrite(EN_TRIG, LOW);
     delayMicroseconds(10);
@@ -106,25 +105,19 @@ float getDistance() {
     unsigned long duration = pulseIn(MISO_ECHO, HIGH);
     float distance = duration / 58;
 
-    if (sizeReadingsUltrasonic == 3) {
-        // retira a última leitura e coloca a nova
-        readingsUltrasonic[2] = readingsUltrasonic[1];
-        readingsUltrasonic[1] = readingsUltrasonic[0];
-        readingsUltrasonic[0] = distance;
-    } else {
-        // caso o vetor ainda não esteja cheio insere na última posição
-        readingsUltrasonic[sizeReadingsUltrasonic] = distance;
-        sizeReadingsUltrasonic++;
-    }
-
-    // calcula e retorna a média das últimas leituras
-    float sum = 0;
-    for (int i = 0; i < sizeReadingsUltrasonic; i++) {
-        sum += readingsUltrasonic[i];
-    }
-
-    return sum / sizeReadingsUltrasonic;
+    return distance;
 }
+
+// Retorna a média da leitura de 3 distâncias
+float getDistanceMean() {
+    float sum = 0.0;
+    for (int i = 0; i < 3; i++) {
+        sum += getDistance();
+    }
+
+    return sum / 3;
+}
+
 ////////////////////////////////////////////////////// FIM ULTRASSOM
 
 ///////////////////////////////////////////////////// OPTICOS
@@ -162,6 +155,32 @@ int getSRCReading() {
 }
 
 ///////////////////////////////////////////////////// FIM OPTICOS
+
+///////////////////////////////////////////////////// GIROSCÓPIO
+
+MPU6050 mpu(Wire);
+
+void setupGyro() {
+    Wire.begin();
+    byte status = mpu.begin();
+    Serial.print(F("MPU6050 status: "));
+    while (status != 0) {
+    }  // stop everything if could not connect to MPU6050
+
+    Serial.println(F("Calculating offsets, do not move MPU6050"));
+    delay(1000);
+    // mpu.upsideDownMounting = true; // uncomment this line if the MPU6050 is mounted upside-down
+    mpu.calcOffsets();  // gyro and accelero
+    Serial.println("Done!\n");
+}
+
+int getAngle() {
+    mpu.update();
+    delay(10);
+    return mpu.getAngleZ();
+}
+
+///////////////////////////////////////////////////// FIM GIROSCÓPIO
 
 ////////////////////////////////////////////////////// LCD
 void setupLcd() {
@@ -325,7 +344,8 @@ float lSensor;
 float rcSensor;
 float lcSensor;
 
-float MIN_SPEED = 30.0;
+float MIN_SPEED_R = 30.0;
+float MIN_SPEED_L = 50.0;
 
 void followLine() {
     // lendo os sensores e atualizando o maxOptical caso necessário
@@ -333,80 +353,56 @@ void followLine() {
     lSensor = float(getSLReading());
 
     if (rSensor >= CROSSING_OFFSET && lSensor >= CROSSING_OFFSET) {
-        MIN_SPEED = 20.0;
+        MIN_SPEED_R = 20.0;
+        MIN_SPEED_L = 30.0;
     }
 
-    float kp = 0.007;
+    float kp = 0.006;
 
     // calculando a velocidade a ser somada
     float rSpeed = kp * lSensor;
     float lSpeed = kp * rSensor;
 
     // calculando o valor absoluto da velocidade para cada motor
-    float pwm_sr = 128 + (rSpeed + MIN_SPEED);
-    float pwm_sl = 128 - (lSpeed + MIN_SPEED);
+    float pwm_sr = 128 + (rSpeed + MIN_SPEED_R);
+    float pwm_sl = 128 - (lSpeed + MIN_SPEED_L);
 
-    enableMotors();
     pwmMotors(int(pwm_sr), int(pwm_sl));
-
-    clearDisplay();
-    char szRSensor[10];
-    char szLSensor[10];
-    dtostrf(pwm_sr, 4, 3, szRSensor);
-    dtostrf(pwm_sl, 4, 3, szLSensor);
-    writeAbove(szRSensor);
-    writeBelow(szLSensor);
-    // delay(50);
+    enableMotors();
 }
 
 void turnRight() {
-    enableMotors();
-    pwmMotors(88, 88);
-
-    while (float scReading = getSCReading()) {
-        if (scReading < 300) {
-            break;
-        }
+    int target = getAngle() - 85;
+    while (getAngle() > target) {
+        pwmMotors(88, 88);
+        enableMotors();
     }
-
-    pwmMotors(108, 108);
-    delay(300);
-    while (float scReading = getSCReading()) {
-        if (scReading > 2 * CROSSING_OFFSET) {
-            break;
-        }
-    }
+    disableMotors();
 }
 
 void turnLeft() {
-    enableMotors();
-    pwmMotors(168, 168);
-
-    while (float scReading = getSCReading()) {
-        if (scReading < 300) {
-            break;
-        }
-    }
-    delay(500);
-    while (float scReading = getSCReading()) {
-        if (scReading > 2 * CROSSING_OFFSET) {
-            break;
-        }
+    int target = getAngle() + 85;
+    while (getAngle() < target) {
+        pwmMotors(168, 168);
+        enableMotors();
     }
     disableMotors();
-    delay(500);
 }
 
 void turnAround() {
-    turnRight();
-    turnRight();
+    int target = getAngle() - 170;
+    while (getAngle() > target) {
+        pwmMotors(88, 88);
+        enableMotors();
+    }
+    disableMotors();
 }
 ////////////////////////////////////////////////////// SEGUE LINHA FIM
 
 ///////////////////////////////////////////////////// UTILS
 
 byte isCloseToWall(float distance) {
-    if (distance > 30)
+    if (distance > 40)
         return false;
     return true;
 }
@@ -433,32 +429,33 @@ char szWallDistance[10];
 void setup() {
     setupOpticalSensors();
     setupUltrassonicSensor();
-    setupLcd();
+    // setupLcd();
     setupServo();
     setupMotors();
     Serial.begin(115200);  // ESP32
+    setupGyro();           // tem que ficar depois do Serial.begin
     servoFront();
 }
 
 void loop() {
+    Serial.println(getDistance());
     if (!isOverCrossing()) {
         followLine();
     } else {
         disableMotors();
-        MIN_SPEED = 30;
+        MIN_SPEED_R = 30.0;
+        MIN_SPEED_L = 50.0;
         servoRight();
-        wallDistance = getDistance();
-        Serial.println(wallDistance);
-        dtostrf(wallDistance, 3, 2, szWallDistance);
-        clearDisplay();
-        writeAbove("Distancia parede");
-        writeBelow(szWallDistance);
+        wallDistance = getDistanceMean();
+        int count = 50;
         if (!isCloseToWall(wallDistance)) {
             Serial.println("Virando direita");
             turnRight();
             servoFront();
-            followLine();
-            delay(500);
+            for (int i = 0; i < count; i++) {
+                followLine();
+                delay(10);
+            }
             return;
         }
 
@@ -469,8 +466,10 @@ void loop() {
         writeAbove(szWallDistance);
         if (!isCloseToWall(wallDistance)) {
             Serial.println("Seguindo em frente");
-            followLine();
-            delay(500);
+            for (int i = 0; i < count; i++) {
+                followLine();
+                delay(10);
+            }
             return;
         }
 
@@ -483,8 +482,10 @@ void loop() {
             Serial.println("Virando esquerda");
             turnLeft();
             servoFront();
-            followLine();
-            delay(500);
+            for (int i = 0; i < count; i++) {
+                followLine();
+                delay(10);
+            }
             return;
         }
 
