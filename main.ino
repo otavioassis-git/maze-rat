@@ -146,7 +146,6 @@ void setupGyro() {
 
     Serial.println(F("Calculating offsets, do not move MPU6050"));
     delay(1000);
-    // mpu.upsideDownMounting = true; // uncomment this line if the MPU6050 is mounted upside-down
     mpu.calcOffsets();  // gyro and accelero
     Serial.println("Done!\n");
 }
@@ -198,13 +197,13 @@ float MIN_SPEED_R = 30.0;
 float MIN_SPEED_L = 50.0;
 
 void followLine() {
-    // lendo os sensores e atualizando o maxOptical caso necessário
     rSensor = float(getSRReading());
     lSensor = float(getSLReading());
 
+    // freiando caso identifique um cruzamento com os sensores frontais
     if (rSensor >= CROSSING_OFFSET && lSensor >= CROSSING_OFFSET) {
         MIN_SPEED_R = 20.0;
-        MIN_SPEED_L = 30.0;
+        MIN_SPEED_L = 40.0;
     }
 
     float kp = 0.006;
@@ -267,13 +266,7 @@ byte isOverCrossing() {
 
 ///////////////////////////////////////////////////// FIM UTILS
 
-///////////////////////////////////////////// GLOBALS
-
-byte bCloseToWall = false;
-
 float wallDistance = 400;
-
-///////////////////////////////////////////// FIM GLOBALS
 
 void setup() {
     setupOpticalSensors();
@@ -309,7 +302,6 @@ void loop() {
 
         servoFront();
         wallDistance = getDistance();
-        clearDisplay();
         if (!isCloseToWall(wallDistance)) {
             Serial.println("Seguindo em frente");
             for (int i = 0; i < count; i++) {
@@ -321,7 +313,6 @@ void loop() {
 
         servoLeft();
         wallDistance = getDistance();
-        clearDisplay();
         if (!isCloseToWall(wallDistance)) {
             Serial.println("Virando esquerda");
             turnLeft();
